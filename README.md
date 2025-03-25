@@ -19,13 +19,18 @@ This project is an attempt to replicate the games on the 1981 Game Time Watch de
 
 ### Version 1
 
-v1 is just the Firing Squad game.  It is running on a Wemos D1 Mini clone (ESP8266) with the Wemos TFT 1.4 Shield.  It's not great:
+v1 is just the Firing Squad game.  It is running on a Wemos D1 Mini clone (ESP8266) with the Wemos TFT 1.4 Shield.  I used the Arduino IDE.  
+
+It's not great:
 - The original game had two types of rounds, which I'll call "wall of bullets" and "string of bullets".  Currently only "wall of bullets" is present, and it doesn't behave the same way as the original.
 - The hardware platform is not good.
   - ESP8266 works fine but is out of date (ESP32 much more common).
   - D1 Mini doesn't have enough pins (I think).  I need 2-3 more buttons.
   - The Wemos TFT 1.4 Shield isn't available anymore and maybe not very common in the first place.
   - The Wemos TFT shield doesn't play well with the TFT_eSPI library (work in progress).
+
+> [!NOTE]
+> I'm happy to document how I got the D1 Mini + TFT 1.4 Shield + TFT_eSPI working, just ask.  I didn't do so because I don't think anyone else is using this setup.
 
 [Here's a video of v1!](https://www.youtube.com/watch?v=KtHXBW3t9KA)
 
