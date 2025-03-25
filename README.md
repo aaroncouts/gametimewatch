@@ -23,9 +23,9 @@ V1 is just the Firing Squad game.  It is running on a Wemos D1 Mini clone (ESP82
 - The original game had two types of rounds, which I'll call "wall of bullets" and "string of bullets".  Currently only "wall of bullets" is present, and it doesn't behave the same way as the original.
 - The hardware platform is not good.
   - ESP8266 works fine but is out of date (ESP32 much more common).
-  - D1 Mini doesn't have enough pins (I think).
-  - The Wemos TFT 1.4 Shield isn't available anymore.
+  - D1 Mini doesn't have enough pins (I think).  I need 2-3 more buttons.
+  - The Wemos TFT 1.4 Shield isn't available anymore and maybe not very common in the first place.
   - The Wemos TFT shield doesn't play well with the TFT_eSPI library (work in progress).
 
-... So my next step is to implement it on the Lilygo TTGO.
+... So my next step is to implement it on the Lilygo TTGO.  The TTGO has a rectangular screen with the right proportions, and supposedly the two on-board buttons, which are nicely located, can be used for gameplay.
   
