@@ -1,7 +1,7 @@
 # gametimewatch
 
 ## Background
-This project is based on the GCE Gametime Watch from 1981, designed by Tom Sloper.  
+This project is based on the GCE Game Time Watch from 1981, designed by Tom Sloper.  
 
 ### Some videos on the watch:
 - [Brief demonstration of all four games](https://www.youtube.com/watch?v=-Bf1ShRP0sU&pp=ygUVZ2NlICJnYW1lIHRpbWUiIHdhdGNo)
