@@ -34,7 +34,7 @@ It's not great:
 
 [Here's a video of v1!](https://www.youtube.com/watch?v=KtHXBW3t9KA)
 
-... So my next step is to implement it on the Lilygo TTGO.  The TTGO has a rectangular screen with the right proportions, and supposedly the two on-board buttons, which are nicely located, can be used for gameplay.
+... So my next step is to implement it on the Lilygo TTGO.  The TTGO has a rectangular screen with the right proportions, and supposedly the two on-board buttons, which are nicely located, can be used for gameplay.  I plan on taking advantage of the excellent [VolosProjects](https://www.youtube.com/@VolosProjects) Youtube channel.
 
 
   
