@@ -27,5 +27,9 @@ V1 is just the Firing Squad game.  It is running on a Wemos D1 Mini clone (ESP82
   - The Wemos TFT 1.4 Shield isn't available anymore and maybe not very common in the first place.
   - The Wemos TFT shield doesn't play well with the TFT_eSPI library (work in progress).
 
+[Here's a video of V1!](https://www.youtube.com/watch?v=KtHXBW3t9KA)
+
 ... So my next step is to implement it on the Lilygo TTGO.  The TTGO has a rectangular screen with the right proportions, and supposedly the two on-board buttons, which are nicely located, can be used for gameplay.
+
+
   
