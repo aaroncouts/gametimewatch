@@ -48,12 +48,23 @@ int screenArray[6][6] = {{5, 0, 0, 0, 0, 5},
 unsigned long previousMillis = 0;
 const long initialTick = 500; 
 
-const int rightUpButtonPin = D1;
-const int leftDownButtonPin = D2;
+// For the D1 Mini I had the left button on pin D1 and right on D2
+// Both buttons were wired with pulldown resistors.
+//const int buttonPressed = HIGH;
+//const int buttonNotPressed = LOW;
+//const int rightUpButtonPin = D1;
+//const int leftDownButtonPin = D2;
+// For the TTGO T-Display I'm using the left button (pin 0) and right (pin 35)
+// Both buttons are pullup.
+const int buttonPressed = LOW;
+const int buttonNotPressed = HIGH;
+const int rightUpButtonPin = 35;
+const int leftDownButtonPin = 0;
+
 int rightUpButtonState;
-int rightUpLastButtonState = LOW;
+int rightUpLastButtonState = buttonNotPressed;
 int leftDownButtonState;
-int leftDownLastButtonState = LOW;
+int leftDownLastButtonState = buttonNotPressed;
 //The following variables are unsigned longs because the time, measured in
 //milliseconds, will quickly become a bigger number than can be stored in an int.
 unsigned long rightUpLastDebounceTime = 0; //The last time the output pin was toggled.
@@ -63,12 +74,17 @@ unsigned long debounceDelay = 20; //The debounce time; increase if the output fl
 void setup()
 {
   Serial.begin(115200);
-  pinMode(rightUpButtonPin, INPUT); //Initialize the pushbutton pin as an input.
-  pinMode(leftDownButtonPin, INPUT); //Initialize the pushbutton pin as an input.
+  // D1 Mini had pulldown resisters.
+  //pinMode(rightUpButtonPin, INPUT); //Initialize the pushbutton pin as an input.
+  //pinMode(leftDownButtonPin, INPUT); //Initialize the pushbutton pin as an input.
+  // TTGO has pullup
+  pinMode(rightUpButtonPin, INPUT_PULLUP); //Initialize the pushbutton pin as an input.
+  pinMode(leftDownButtonPin, INPUT_PULLUP); //Initialize the pushbutton pin as an input.
 
 
   tft.init();
-  tft.setRotation(2);	// landscape
+  //tft.setRotation(2); // D1 Mini + TFT 1.4 had to use rotation 2
+  tft.setRotation(0); // TTGO T-Display
 
   tft.fillScreen(TFT_BLACK);
 
@@ -80,7 +96,7 @@ void setup()
 
   drawScreen();
   start();
-  randomSeed(analogRead(0));
+  randomSeed(analogRead(1));
 }
 
 int line[6] = {0,
@@ -121,14 +137,14 @@ void loop() {
     {
       rightUpButtonState = rightUpReading;
 
-      if (rightUpButtonState == HIGH) //Only toggle the LED if the new button state is high
+      if (rightUpButtonState == buttonPressed) //Only toggle the LED if the new button state is high
       {
         //ledState = !ledState;
         //Serial.print("Right/Up button\n");
-        img.drawString("R",102,0,2);
+        img.drawString("R",112,0,2);
         img.pushSprite(0,0);
         delay(10);
-        img.fillRect(100,0,20,20,TFT_BLACK);
+        img.fillRect(110,0,20,20,TFT_BLACK);
         img.pushSprite(0,0);
         move(-1);
 
@@ -153,7 +169,7 @@ void loop() {
     {
       leftDownButtonState = leftDownReading;
 
-      if (leftDownButtonState == HIGH) //Only toggle the LED if the new button state is high
+      if (leftDownButtonState == buttonPressed) //Only toggle the LED if the new button state is high
       {
         //ledState = !ledState;
         //Serial.print("Left/Down button\n");
