@@ -32,10 +32,48 @@ TFT_eSPI tft = TFT_eSPI();  // Invoke custom library
 
 TFT_eSprite img = TFT_eSprite(&tft);
 
-const int yPos[6] = {32, 48, 64, 80, 96, 112};
+#if defined(ARDUINO_ESP8266_WEMOS_D1MINI)
+  // ESP8266 specific code here
+  // For the D1 Mini I had the left button on pin D1 and right on D2
+  // Both buttons were wired with pulldown resistors.
+  const int yPos[6] = {32, 48, 64, 80, 96, 112};
+  // For the D1 Mini + Wemos TFT 1.4 display I'm using the left/down button (pin 0) and right/up (pin 35)
+  // and pullup mode
+  const int buttonPressed = HIGH;
+  const int buttonNotPressed = LOW;
+  const int rightUpButtonPin = D1;
+  const int leftDownButtonPin = D2;
+
+  #define ROTATION 2
+  #define MAXXDIM 128
+  #define MAXYDIM 128
+  #define PINMODE INPUT
+  const char *aaron = "Get Ready (D1Mini)...";
+
+#elif defined(ARDUINO_LILYGO_T_DISPLAY)
+  // Lilygo T-Display
+  const int yPos[6] = {60, 90, 120, 150, 180, 210};
+  // For the TTGO T-Display I'm using the left/down button (pin 0) and right/up (pin 35)
+  // and pullup mode
+  const int buttonPressed = LOW;
+  const int buttonNotPressed = HIGH;
+  const int rightUpButtonPin = 35;
+  const int leftDownButtonPin = 0;
+
+  #define ROTATION 0
+  #define MAXXDIM 135
+  #define MAXYDIM 240
+  #define PINMODE INPUT_PULLUP
+  const char *aaron = "Get ready (T-Display)...";
+//#elif defined(LILYGO_T_DISPLAY_S3)
+#else
+  #warning "device type not found"
+#endif
+
+
 const short unsigned int* ic[6] = {i0c, i1c, i2c, i3c, i4c, i5c};
-const uint16_t icWidth=16;
-const uint16_t icHeight=16;
+const uint16_t icWidth = ICONWIDTH;
+const uint16_t icHeight = ICONHEIGHT;
 
 //randomSeed(analogRead(0));
 int screenArray[6][6] = {{5, 0, 0, 0, 0, 5},
@@ -48,18 +86,7 @@ int screenArray[6][6] = {{5, 0, 0, 0, 0, 5},
 unsigned long previousMillis = 0;
 const long initialTick = 500; 
 
-// For the D1 Mini I had the left button on pin D1 and right on D2
-// Both buttons were wired with pulldown resistors.
-//const int buttonPressed = HIGH;
-//const int buttonNotPressed = LOW;
-//const int rightUpButtonPin = D1;
-//const int leftDownButtonPin = D2;
-// For the TTGO T-Display I'm using the left button (pin 0) and right (pin 35)
-// Both buttons are pullup.
-const int buttonPressed = LOW;
-const int buttonNotPressed = HIGH;
-const int rightUpButtonPin = 35;
-const int leftDownButtonPin = 0;
+
 
 int rightUpButtonState;
 int rightUpLastButtonState = buttonNotPressed;
@@ -73,25 +100,19 @@ unsigned long debounceDelay = 20; //The debounce time; increase if the output fl
 
 void setup()
 {
-  Serial.begin(115200);
-  // D1 Mini had pulldown resisters.
-  //pinMode(rightUpButtonPin, INPUT); //Initialize the pushbutton pin as an input.
-  //pinMode(leftDownButtonPin, INPUT); //Initialize the pushbutton pin as an input.
-  // TTGO has pullup
-  pinMode(rightUpButtonPin, INPUT_PULLUP); //Initialize the pushbutton pin as an input.
-  pinMode(leftDownButtonPin, INPUT_PULLUP); //Initialize the pushbutton pin as an input.
-
-
   tft.init();
-  //tft.setRotation(2); // D1 Mini + TFT 1.4 had to use rotation 2
-  tft.setRotation(0); // TTGO T-Display
 
   tft.fillScreen(TFT_BLACK);
-
   // Swap the colour byte order when rendering
   tft.setSwapBytes(true);
   //delay(2000);
-  img.createSprite(128,128);
+
+  Serial.begin(115200);
+  pinMode(rightUpButtonPin, PINMODE); //Initialize the pushbutton pin as an input.
+  pinMode(leftDownButtonPin, PINMODE); //Initialize the pushbutton pin as an input.
+
+  tft.setRotation(ROTATION);
+  img.createSprite(MAXXDIM,MAXYDIM);
   img.setSwapBytes(true);
 
   drawScreen();
@@ -226,7 +247,8 @@ void start() {
   numRounds = 0;
   tick = initialTick;
   img.fillRect(18,0,110,20,TFT_BLACK);
-  img.drawString("Get ready...",20,0,2);
+  //img.drawString("Get ready...",20,0,2);
+  img.drawString(aaron,20,0,2);
   img.pushSprite(0,0);
   delay(2000);
   img.fillRect(18,0,110,20,TFT_BLACK);
@@ -254,7 +276,7 @@ void drawScreen() {
   int ixx, ixy;
   for (ixx = 0; ixx <= 5; ixx++) {
     for (ixy = 0; ixy <= 5; ixy++) {
-      img.pushImage((ixx * 16), yPos[ixy], icWidth, icHeight, ic[screenArray[ixy][ixx]]);
+      img.pushImage((ixx * icWidth), yPos[ixy], icWidth, icHeight, ic[screenArray[ixy][ixx]]);
     }
   }
   img.pushSprite(0,0);
