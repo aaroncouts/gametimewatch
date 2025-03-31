@@ -36,5 +36,10 @@ It's not great:
 
 ... So my next step is to implement it on the Lilygo TTGO.  The TTGO has a rectangular screen with the right proportions, and supposedly the two on-board buttons, which are nicely located, can be used for gameplay.  I plan on taking advantage of the excellent [VolosProjects](https://www.youtube.com/@VolosProjects) Youtube channel.
 
+Update 2025-03-30:
+
+I got the TTGO T-Display and it's almost perfect.  It would be perfect had I not just seen the difference betweeen the T-Display and the newer T-Display S3 with a bigger screen.  We'll see whether I can resist the temptation to upgrade.  Also I figured out how to use the C preprocessor to detect the type of board the code is being loaded onto.  Will be easier to support multiple boards.  
+ 
+
 
   
