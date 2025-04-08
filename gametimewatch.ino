@@ -21,6 +21,18 @@ TFT_eSPI tft = TFT_eSPI();  // Invoke custom library
 
 TFT_eSprite img = TFT_eSprite(&tft);
 
+const int numButtons = 4;
+struct buttonConfig {
+  int buttonPressed;
+  int buttonNotPressed;
+  int pin;
+  int buttonPinMode;
+  int powerPinFlag; // On the T-display, a couple buttons are wired to GPIO pins rather than to the power pin.
+                    // I'll be setting those pins to HIGH to provide power to the button.  If this comment stays
+                    // here, it worked.
+  int powerPin;
+};
+
 #if defined(ARDUINO_ESP8266_WEMOS_D1MINI)
   // ESP8266 specific code here
   // For the D1 Mini I had the left button on pin D1 and right on D2
@@ -28,38 +40,58 @@ TFT_eSprite img = TFT_eSprite(&tft);
   const int yPos[6] = {32, 48, 64, 80, 96, 112};
   // For the D1 Mini + Wemos TFT 1.4 display I'm using the left/down button (pin 0) and right/up (pin 35)
   // and pullup mode
-  const int buttonPressed = HIGH;
-  const int buttonNotPressed = LOW;
-  const int rightUpButtonPin = D1;
-  const int leftDownButtonPin = D2;
+  const struct buttonConfig buttonConfigs[numButtons] = 
+    { .buttonPressed = HIGH, .buttonNotPressed = LOW, .pin = D1, .buttonPinMode = INPUT, .powerPinFlag = 0 },
+    { .buttonPressed = HIGH, .buttonNotPressed = LOW, .pin = D2, .buttonPinMode = INPUT, .powerPinFlag = 0 },
+    { .buttonPressed = HIGH, .buttonNotPressed = LOW, .pin = D3, .buttonPinMode = INPUT, .powerPinFlag = 0 },
+    { .buttonPressed = HIGH, .buttonNotPressed = LOW, .pin = D4, .buttonPinMode = INPUT, .powerPinFlag = 0 }
+  };
 
   #define ROTATION 2
   #define MAXXDIM 128
   #define MAXYDIM 128
-  #define PINMODE INPUT
-
 
 #elif defined(ARDUINO_LILYGO_T_DISPLAY)
   // Lilygo T-Display
   const int yPos[6] = {60, 90, 120, 150, 180, 210};
   //const int yPos[6] = {60, 82, 104, 126, 148, 170}; // for debug mode
   // For the TTGO T-Display I'm using the left/down button (pin 0) and right/up (pin 35)
-  // and pullup mode
-  const int buttonPressed = LOW;
-  const int buttonNotPressed = HIGH;
-  const int rightUpButtonPin = 35;
-  const int leftDownButtonPin = 0;
+  // and pullup mode.
+  // Also for this board, my Select and Fire buttons are wired directly to GPIO pins rather than the power pin.
+  const struct buttonConfig buttonConfigs[numButtons] = {
+    { .buttonPressed = LOW, .buttonNotPressed = HIGH, .pin = 35, .buttonPinMode = INPUT_PULLUP, .powerPinFlag = 0 },
+    { .buttonPressed = LOW, .buttonNotPressed = HIGH, .pin = 0,  .buttonPinMode = INPUT_PULLUP, .powerPinFlag = 0 },
+    { .buttonPressed = HIGH, .buttonNotPressed = LOW, .pin = 39, .buttonPinMode = INPUT, .powerPinFlag = 1, .powerPin = 33 },
+    { .buttonPressed = HIGH, .buttonNotPressed = LOW, .pin = 17, .buttonPinMode = INPUT, .powerPinFlag = 1, .powerPin = 15 }
+  };
 
   #define ROTATION 0
   #define MAXXDIM 135
   #define MAXYDIM 240
-  #define PINMODE INPUT_PULLUP
 
 //#elif defined(LILYGO_T_DISPLAY_S3)
 #else
   #warning "device type not found"
 #endif
 
+const int rightUpButton = 0;
+const int leftDownButton = 1;
+const int selectButton = 2;
+const int fireButton = 3;
+
+struct buttonState {
+  int currState;
+  int lastState;
+  unsigned long lastDebounceTime; //The last time the output pin was toggled.
+  int pressedFlag;
+};
+
+struct buttonState buttonStates[numButtons] = {
+  {.currState = buttonConfigs[rightUpButton].buttonNotPressed, .lastState = buttonConfigs[rightUpButton].buttonNotPressed, .lastDebounceTime = 0, .pressedFlag = 0 },
+  {.currState = buttonConfigs[leftDownButton].buttonNotPressed, .lastState = buttonConfigs[leftDownButton].buttonNotPressed, .lastDebounceTime = 0, .pressedFlag = 0 },
+  {.currState = buttonConfigs[selectButton].buttonNotPressed, .lastState = buttonConfigs[selectButton].buttonNotPressed, .lastDebounceTime = 0, .pressedFlag = 0 },
+  {.currState = buttonConfigs[fireButton].buttonNotPressed, .lastState = buttonConfigs[fireButton].buttonNotPressed, .lastDebounceTime = 0, .pressedFlag = 0 }
+};
 
 const short unsigned int* ic[6] = {i0c, i1c, i2c, i3c, i4c, i5c};
 const uint16_t icWidth = ICONWIDTH;
@@ -76,14 +108,8 @@ int screenArray[6][6];
                           
 unsigned long previousMillis = 0;
 
-int rightUpButtonState;
-int rightUpLastButtonState = buttonNotPressed;
-int leftDownButtonState;
-int leftDownLastButtonState = buttonNotPressed;
 //The following variables are unsigned longs because the time, measured in
 //milliseconds, will quickly become a bigger number than can be stored in an int.
-unsigned long rightUpLastDebounceTime = 0; //The last time the output pin was toggled.
-unsigned long leftDownLastDebounceTime = 0; //The last time the output pin was toggled.
 unsigned long debounceDelay = 20; //The debounce time; increase if the output flickers
 
 int dead = 0;
@@ -121,6 +147,8 @@ int tickLowerLimit = 200;
 
 int highScore = 0;
 
+char gameMode[20] = "firingSquad";
+
 void setup()
 {
   tft.init();
@@ -131,8 +159,14 @@ void setup()
   //delay(2000);
 
   Serial.begin(115200);
-  pinMode(rightUpButtonPin, PINMODE); //Initialize the pushbutton pin as an input.
-  pinMode(leftDownButtonPin, PINMODE); //Initialize the pushbutton pin as an input.
+  int b;
+  for (b = 0; b < numButtons; b++) {
+    pinMode(buttonConfigs[b].pin, buttonConfigs[b].buttonPinMode); //Initialize the pushbutton pin as an input.
+    if (buttonConfigs[b].powerPinFlag == 1) {
+      pinMode(buttonConfigs[b].powerPin, OUTPUT);
+      digitalWrite(buttonConfigs[b].powerPin, HIGH);
+    }
+  }
 
   tft.setRotation(ROTATION);
   img.createSprite(MAXXDIM,MAXYDIM);
@@ -144,76 +178,73 @@ void setup()
 
 
 void loop() {
+  int b;
+  for (b = 0; b < numButtons; b++) {
+    checkButton(b);
+  }
+  if (strcmp(gameMode, "buttonStatus") == 0) {
+    loopButtonStatus();
+  } else if (strcmp(gameMode, "firingSquad") == 0) {
+    loopFiringSquad();
+  }
+}
+
+void checkButton(int buttonID) {
+  // Setting the pressedFlag to zero to ensure only one "pressed" event occurs even if
+  // button is held down.
+  buttonStates[buttonID].pressedFlag = 0;
   // First we'll check the left and right buttons.
-  int rightUpReading = digitalRead(rightUpButtonPin); //Read the state of the switch into a local variable:
-  if (rightUpReading == 0) {
-    // When the button is released, regardless of bounce, overwrite the L with blank
-    img.fillRect(110,0,20,20,TFT_BLACK);
-    img.pushSprite(0,0);
-  }
+  int reading = digitalRead(buttonConfigs[buttonID].pin); //Read the state of the switch into a local variable:
   //Check to see if you just pressed the button
   //(i.e. the input went from LOW to HIGH), and you've waited long enough
   //since the last press to ignore any noise:
-  if (rightUpReading != rightUpLastButtonState)
-  {
-    rightUpLastDebounceTime = millis(); //Reset the debouncing timer
+  if (reading != buttonStates[buttonID].lastState) {
+    buttonStates[buttonID].lastDebounceTime = millis(); //Reset the debouncing timer
   }
-  if ((millis() - rightUpLastDebounceTime) > debounceDelay)
+  if ((millis() - buttonStates[buttonID].lastDebounceTime) > debounceDelay) {
     //Whatever the reading is at, it's been there for longer than the debounce
     // delay, so take it as the actual current state:
-  {
-    if (rightUpReading != rightUpButtonState) //If the button state has changed:
-    {
-      rightUpButtonState = rightUpReading;
+    if (reading != buttonStates[buttonID].currState) { //If the button state has changed:
 
-      if (rightUpButtonState == buttonPressed) //Only toggle the LED if the new button state is high
-      {
-        //ledState = !ledState;
-        //Serial.print("Right/Up button\n");
-        img.drawString("R",112,0,2);
-        img.pushSprite(0,0);
-        move(-1);
+      buttonStates[buttonID].currState = reading;
 
+      if (buttonStates[buttonID].currState == buttonConfigs[buttonID].buttonPressed) { //Only toggle the LED if the new button state is high
+        buttonStates[buttonID].pressedFlag = 1;
+      } else {
+        buttonStates[buttonID].pressedFlag = 0;
       }
     }
   }
-  rightUpLastButtonState = rightUpReading; //Save the reading. Next time through the loop, it'll be the lastButtonState:
+  buttonStates[buttonID].lastState = reading; //Save the reading. Next time through the loop, it'll be the lastButtonState:
+}
 
-  int leftDownReading = digitalRead(leftDownButtonPin); //Read the state of the switch into a local variable:
-  if (leftDownReading == 0) {
-    // When the button is released, regardless of bounce, overwrite the L with blank
-    img.fillRect(100,0,20,20,TFT_BLACK);
+void loopButtonStatus() {
+  char aaronMessage[50];
+  sprintf(aaronMessage, "R/U button: %d", buttonStates[rightUpButton].pressedFlag);
+  img.drawString(aaronMessage, 0, 50, 2);
+  sprintf(aaronMessage, "L/D button: %d", buttonStates[leftDownButton].pressedFlag);
+  img.drawString(aaronMessage, 0, 80, 2);
+  sprintf(aaronMessage, "Select button: %d", buttonStates[selectButton].pressedFlag);
+  img.drawString(aaronMessage, 0, 110, 2);
+  sprintf(aaronMessage, "Fire button: %d", buttonStates[fireButton].pressedFlag);
+  img.drawString(aaronMessage, 0, 140, 2);
+  img.pushSprite(0,0);
+}
+
+void loopFiringSquad() {
+  // First check whether the movement buttons were pressed, move if necessary.
+  if (buttonStates[rightUpButton].pressedFlag == 1) {
+    img.drawString("R",112,0,2);
+    img.pushSprite(0,0);
+    move(-1);
+  } else if (buttonStates[leftDownButton].pressedFlag == 1) {
+    img.drawString("L",102,0,2);
+    img.pushSprite(0,0);
+    move(1);
+  } else {
+    img.fillRect(100,0,35,20,TFT_BLACK);
     img.pushSprite(0,0);
   }
-  //Check to see if you just pressed the button
-  //(i.e. the input went from LOW to HIGH), and you've waited long enough
-  //since the last press to ignore any noise:
-  if (leftDownReading != leftDownLastButtonState)
-  {
-    leftDownLastDebounceTime = millis(); //Reset the debouncing timer
-  }
-  if ((millis() - leftDownLastDebounceTime) > debounceDelay)
-    //Whatever the reading is at, it's been there for longer than the debounce
-    // delay, so take it as the actual current state:
-  {
-    if (leftDownReading != leftDownButtonState) //If the button state has changed:
-    {
-      leftDownButtonState = leftDownReading;
-
-      if (leftDownButtonState == buttonPressed) //Only toggle the LED if the new button state is high
-      {
-        //ledState = !ledState;
-        //Serial.print("Left/Down button\n");
-        img.drawString("L",102,0,2);
-        img.pushSprite(0,0);
-        move(1);
-      }
-    }
-  }
-  leftDownLastButtonState = leftDownReading; //Save the reading. Next time through the loop, it'll be the lastButtonState:
-
-
-
 
   // Next, we'll check the game tick.
   unsigned long currentMillis = millis();
@@ -245,10 +276,10 @@ void loop() {
       img.drawString("Dang!",95,0,2);
       char highScoreMessage[50];
       if (score > highScore) {
-        sprintf(highScoreMessage, "New high score!  %d", score);
+        sprintf(highScoreMessage, "New high score! %d", score);
         img.drawString(highScoreMessage, 0, 35, 2);
         highScore = score;
-      } else {
+      } else if (highScore > 0) {
         sprintf(highScoreMessage, "High score is %d", highScore);
         img.drawString(highScoreMessage, 0, 35, 2);
       }
