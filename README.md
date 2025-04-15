@@ -17,7 +17,7 @@ This project is based on the GCE Game Time Watch from 1981, designed by Tom Slop
 
 This project is an attempt to replicate the games on the 1981 Game Time Watch designed by Tom Sloper.
 
-### Version 1
+### Version 1.0
 
 v1 is just the Firing Squad game.  It is running on a Wemos D1 Mini clone (ESP8266) with the Wemos TFT 1.4 Shield.  I used the Arduino IDE.  
 
@@ -39,7 +39,17 @@ It's not great:
 Update 2025-03-30:
 
 I got the TTGO T-Display and it's almost perfect.  It would be perfect had I not just seen the difference betweeen the T-Display and the newer T-Display S3 with a bigger screen.  We'll see whether I can resist the temptation to upgrade.  Also I figured out how to use the C preprocessor to detect the type of board the code is being loaded onto.  Will be easier to support multiple boards.  
- 
+
+### Version 1.1
+
+V1.1 is still just the Firing Squad game.
+
+It's a lot better than v1.0:
+- Gameplay is much closer to the original with varying "walls" and "chains" of bullets.
+- I added a "select" button and a "fire" button.  No actual functionality yet but should be coming soon.  The buttons do work.
+- I added some screen art, drawn by my kid.
+- Added basic "high score" functionality.  Currently it gets overwritten when the device restarts but there's an easy way to make it persistent.
+- I did a lot of refactoring of the code.  Still awful but should be a lot easier to work with.
 
 
   
