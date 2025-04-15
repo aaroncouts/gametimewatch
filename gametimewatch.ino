@@ -74,6 +74,8 @@ struct buttonConfig {
   #warning "device type not found"
 #endif
 
+// Global variables
+
 const int rightUpButton = 0;
 const int leftDownButton = 1;
 const int selectButton = 2;
@@ -102,6 +104,12 @@ const short unsigned int* ic[6] = {i0c, i1c, i2c, i3c, i4c, i5c};
 const uint16_t icWidth = ICONWIDTH;
 const uint16_t icHeight = ICONHEIGHT;
 
+// We'll use this global array to represent the game screen for all four games.
+int screenArray[6][6] = {{}};
+
+char gameMode[20] = "firingSquad";
+
+// Every game has bullets
 struct bullet {
   int x;
   int y;
@@ -112,6 +120,11 @@ struct bullet {
   int icon;
   int lastFlag;
 };
+
+// Game- or mode-specific variables
+// Doing these as structs, basically to allow me to use global variables
+// and not worry about passing them arround, but using the structs as 
+// folders.
 
 struct firingSquadConst {
   const int initialScreenArray[6][6];
@@ -148,9 +161,7 @@ struct firingSquadConst firingSquadConsts = {
   .tickLowerLimit = 200
 };
 
-
 struct firingSquadVar {
-  int screenArray[6][6];
   struct bullet rounds[30]; // should match maxBulletsInRound; can't use struct element value.
                             // If I was a real man I'd use malloc.
   int dead;
@@ -159,11 +170,9 @@ struct firingSquadVar {
   int playerYPos;
   long adjustableTick;
   int highScore;
-  char gameMode[20];
 };
 
 struct firingSquadVar firingSquadVars = {
-  .screenArray = {{}},
   .rounds = {},
   .dead = 0,
   .score = 0,
@@ -171,11 +180,23 @@ struct firingSquadVar firingSquadVars = {
   .playerYPos = 0,
   .adjustableTick = firingSquadConsts.initialTick, // milliseconds.  after each tick the bullets will move 
   .highScore = 0,
-  .gameMode = "firingSquad"
 };
 
-void setup()
-{
+struct buttonStatusVar {
+  unsigned long exitMillis;
+  unsigned long buttonStatusDelay;
+  int timeRemaining;
+  int lastTimeRemaining;
+};
+
+struct buttonStatusVar buttonStatusVars = {
+  .exitMillis = 0,
+  .buttonStatusDelay = 10000, // really a configurable const, but not worth adding a whole new struct.
+  .timeRemaining = 0,
+  .lastTimeRemaining = 0
+};
+
+void setup() {
   tft.init();
 
   tft.fillScreen(TFT_BLACK);
@@ -199,20 +220,26 @@ void setup()
   img.setSwapBytes(true);
 
   randomSeed(analogRead(1));
-  start();
+  startFiringSquad();
 } // end void setup()
 
 
 void loop() {
   int b;
-  for (b = 0; b < numButtons; b++) {
+  for (b = 0; b < numButtons; b++) { // I should probably move this loop to checkButton.
     checkButton(b);
   }
-  if (strcmp(firingSquadVars.gameMode, "buttonStatus") == 0) {
+  if (strcmp(gameMode, "mainMenu") == 0) {
+    loopMainMenu();
+  } else if (strcmp(gameMode, "buttonStatus") == 0) {
     loopButtonStatus();
-  } else if (strcmp(firingSquadVars.gameMode, "firingSquad") == 0) {
+  } else if (strcmp(gameMode, "firingSquad") == 0) {
     loopFiringSquad();
   }
+}
+
+void loopMainMenu() {
+  //
 }
 
 void checkButton(int buttonID) {
@@ -254,19 +281,35 @@ void loopButtonStatus() {
   img.drawString(aaronMessage, 0, 110, 2);
   sprintf(aaronMessage, "Fire button: %d", buttonStates[fireButton].pressedFlag);
   img.drawString(aaronMessage, 0, 140, 2);
+
+  unsigned long currentMillis = millis();
+  if (buttonStatusVars.timeRemaining == 0) {
+    // We should only be here if we just started a new buttonStatus session.
+    buttonStatusVars.exitMillis = currentMillis + buttonStatusVars.buttonStatusDelay;
+  }
+  if (buttonStatusVars.exitMillis > currentMillis) {
+    buttonStatusVars.timeRemaining = int(buttonStatusVars.exitMillis - currentMillis);
+    if (buttonStatusVars.timeRemaining != buttonStatusVars.lastTimeRemaining) {
+      buttonStatusVars.timeRemaining = int(buttonStatusVars.exitMillis - currentMillis);
+      sprintf(aaronMessage, "Exit in %d seconds", buttonStatusVars.timeRemaining);
+    }
+  } else {
+    strcpy(gameMode, "firingSquad");
+  }
   img.pushSprite(0,0);
-}
+  buttonStatusVars.lastTimeRemaining = buttonStatusVars.timeRemaining;
+} // end void loopButtonStatus()
 
 void loopFiringSquad() {
   // First check whether the movement buttons were pressed, move if necessary.
   if (buttonStates[rightUpButton].pressedFlag == 1) {
     img.drawString("R",112,0,2);
     img.pushSprite(0,0);
-    move(-1);
+    movePlayerFiringSquad(-1);
   } else if (buttonStates[leftDownButton].pressedFlag == 1) {
     img.drawString("L",102,0,2);
     img.pushSprite(0,0);
-    move(1);
+    movePlayerFiringSquad(1);
   } else {
     img.fillRect(100,0,35,20,TFT_BLACK);
     img.pushSprite(0,0);
@@ -283,16 +326,16 @@ void loopFiringSquad() {
     if (firingSquadVars.bulletsRemaining == 0) {
       // No bullets left in round!  Start a new round.
       if (int(random(0, 2) == 0)) {
-        firingSquadVars.bulletsRemaining = generateChain();       
+        firingSquadVars.bulletsRemaining = generateChainFiringSquad();
       } else {
-        firingSquadVars.bulletsRemaining = generateWalls();
+        firingSquadVars.bulletsRemaining = generateWallsFiringSquad();
       }
       if (firingSquadVars.adjustableTick >= firingSquadConsts.tickLowerLimit) {
         firingSquadVars.adjustableTick -= firingSquadConsts.tickAdjustment;
         img.drawString(String(firingSquadVars.adjustableTick),102,20,1);
       }
     } else {
-      moveBullets();
+      moveBulletsFiringSquad();
     }
 
     img.drawString(String(firingSquadVars.score),20,0,4);
@@ -311,12 +354,14 @@ void loopFiringSquad() {
       }
       img.pushSprite(0,0);
       delay(2000);
-      start();
+      startFiringSquad();
     }
   }
-} // end void loop()
+} // end void loopFiringSquad()
 
-void start() {
+
+
+void startFiringSquad() {
   firingSquadVars.score = 0;
   firingSquadVars.dead = 0;
   firingSquadVars.adjustableTick = firingSquadConsts.initialTick;
@@ -326,21 +371,23 @@ void start() {
   int j;
   for (i = 0; i < firingSquadConsts.verticalPositions; i++) {
     for (j = 0; j < firingSquadConsts.horizontalPositions; j++) {
-      firingSquadVars.screenArray[i][j] = firingSquadConsts.initialScreenArray[i][j];
+      screenArray[i][j] = firingSquadConsts.initialScreenArray[i][j];
     }
   }
-  firingSquadVars.screenArray[firingSquadVars.playerYPos][(firingSquadConsts.horizontalPositions - 1)] = 5; // put player icon in firingSquadVars.playerYPos
+  screenArray[firingSquadVars.playerYPos][(firingSquadConsts.horizontalPositions - 1)] = 5; // put player icon in firingSquadVars.playerYPos
 
-  img.fillRect(0,0,135,59,TFT_BLACK);
-  img.drawString("Get ready...",0,0,4);
+  img.fillRect(0,0,135,240,TFT_BLACK);
   img.pushSprite(0,0);
-  delay(2000);
-  img.fillRect(0,0,135,30,TFT_BLACK);
+  img.drawString("Get ready...",0,0,4);
+  img.pushImage(0, 50, BREAKOUT_MAX5_WIDTH, BREAKOUT_MAX5_HEIGHT, breakout_max5);
+  img.pushSprite(0,0);
+  delay(4000);
+  img.fillRect(0,0,135,240,TFT_BLACK);
   img.drawString("0",20,0,4);
   drawScreen();
-} // end void start()
+} // end void startFiringSquad()
 
-int generateWalls() {
+int generateWallsFiringSquad() {
   int numBulletsInThisWallSet = 0;
   int i; // wall iterator
   int numWalls = int(random(0, firingSquadConsts.maxWallRounds)) + 1;
@@ -387,9 +434,9 @@ int generateWalls() {
                                    // did not create a new entry in firingSquadVars.rounds[].  So we have to subtract one so this function
                                    // returns not the number of bullets, but rather the index of the last populated entry in 
                                    // firingSquadVars.rounds[].
-} // end int generateWalls()
+} // end int generateWallsFiringSquad()
 
-int generateChain() {
+int generateChainFiringSquad() {
   int numBulletsInThisChain = int(random(firingSquadConsts.minChainBullets, (firingSquadConsts.maxChainBullets + 1)));  
   int j; // bullet iterator
   for (j = 0; j <= numBulletsInThisChain; j++) {
@@ -401,28 +448,28 @@ int generateChain() {
   }
   firingSquadVars.rounds[numBulletsInThisChain].lastFlag = 1;
   return numBulletsInThisChain;
-} // end int generateChain
+} // end int generateChainFiringSquad
 
 
 void drawScreen() {
   int ixx, ixy;
   for (ixx = 0; ixx <= 5; ixx++) {
     for (ixy = 0; ixy <= 5; ixy++) {
-      img.pushImage((ixx * icWidth), yPos[ixy], icWidth, icHeight, ic[firingSquadVars.screenArray[ixy][ixx]]);
+      img.pushImage((ixx * icWidth), yPos[ixy], icWidth, icHeight, ic[screenArray[ixy][ixx]]);
     }
   }
   img.pushSprite(0,0);
 } // end void drawScreen()
 
-void moveBullets() {
+void moveBulletsFiringSquad() {
   int j = 0;
   do {
     if ((firingSquadVars.rounds[j].x >= 0) and (firingSquadVars.rounds[j].x <= firingSquadConsts.theKillPosition)) { 
       // Current bullet position is in-screen.  We'll remove the icon from the current location.
-      if (firingSquadVars.screenArray[firingSquadVars.rounds[j].y][firingSquadVars.rounds[j].x] == 4) {
-        firingSquadVars.screenArray[firingSquadVars.rounds[j].y][firingSquadVars.rounds[j].x] = 5;
-      } else if (firingSquadVars.screenArray[firingSquadVars.rounds[j].y][firingSquadVars.rounds[j].x] == 1) {
-        firingSquadVars.screenArray[firingSquadVars.rounds[j].y][firingSquadVars.rounds[j].x] = 0;
+      if (screenArray[firingSquadVars.rounds[j].y][firingSquadVars.rounds[j].x] == 4) {
+        screenArray[firingSquadVars.rounds[j].y][firingSquadVars.rounds[j].x] = 5;
+      } else if (screenArray[firingSquadVars.rounds[j].y][firingSquadVars.rounds[j].x] == 1) {
+        screenArray[firingSquadVars.rounds[j].y][firingSquadVars.rounds[j].x] = 0;
         if (firingSquadVars.rounds[j].x == firingSquadConsts.theKillPosition) { 
           // if the removal location is NOT occupied by the player's icon, firingSquadVars.score this bullet and remove from count
           firingSquadVars.score++;
@@ -442,27 +489,27 @@ void moveBullets() {
 
     if ((firingSquadVars.rounds[j].x >= 0) and (firingSquadVars.rounds[j].x <= firingSquadConsts.theKillPosition)) {
       // New bullet position is in in-screen.  We'll add the icon to the new location.
-      if (firingSquadVars.screenArray[firingSquadVars.rounds[j].y][firingSquadVars.rounds[j].x] == 5) {
-        firingSquadVars.screenArray[firingSquadVars.rounds[j].y][firingSquadVars.rounds[j].x] = 4;
+      if (screenArray[firingSquadVars.rounds[j].y][firingSquadVars.rounds[j].x] == 5) {
+        screenArray[firingSquadVars.rounds[j].y][firingSquadVars.rounds[j].x] = 4;
         if (firingSquadVars.rounds[j].x == firingSquadConsts.theKillPosition) { 
           // if the new location is occupied by the player's icon, player is firingSquadVars.dead.
           firingSquadVars.dead = 1;
         }
-      } else if (firingSquadVars.screenArray[firingSquadVars.rounds[j].y][firingSquadVars.rounds[j].x] == 0) {
-        firingSquadVars.screenArray[firingSquadVars.rounds[j].y][firingSquadVars.rounds[j].x] = 1;
+      } else if (screenArray[firingSquadVars.rounds[j].y][firingSquadVars.rounds[j].x] == 0) {
+        screenArray[firingSquadVars.rounds[j].y][firingSquadVars.rounds[j].x] = 1;
       }
     }
     j++;
   } while (firingSquadVars.rounds[j].lastFlag == 0);
 
-} // end void moveBullets()
+} // end void moveBulletsFiringSquad()
 
-void move(int direction) {
+void movePlayerFiringSquad(int direction) {
   if (((firingSquadVars.playerYPos == 0) && (direction == -1)) || ((firingSquadVars.playerYPos == 5) && (direction == 1))) {
     return;
   }
-  firingSquadVars.screenArray[firingSquadVars.playerYPos][5] = 0;
+  screenArray[firingSquadVars.playerYPos][5] = 0;
   firingSquadVars.playerYPos += direction;
-  firingSquadVars.screenArray[firingSquadVars.playerYPos][5] = 5;
+  screenArray[firingSquadVars.playerYPos][5] = 5;
   drawScreen();
-} // end void move(int direction)
+} // end void movePlayerFiringSquad(int direction)
